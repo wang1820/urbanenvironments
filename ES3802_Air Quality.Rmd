@@ -518,6 +518,48 @@ There is no statistically significant difference in the mean TOTAL values across
 
 # Is there significance difference Between buildings & vegetation 
 ```{r}
+# Add vegetation/building classification
+result <- result %>%
+  mutate(Type = ifelse(PN %in% c(1:10, 12:14, 16, 17, 19),
+                       "Vegetation", "Building"))
 
+# Function to perform and format comparisons
+compare_groups <- function(pollutant) {
+  # Clean parameter name
+  param_name <- str_remove(pollutant, "Avg_")
+  
+  # Extract data
+  veg <- result %>% filter(Type == "Vegetation") %>% pull(pollutant)
+  bld <- result %>% filter(Type == "Building") %>% pull(pollutant)
+  
+  # Remove NAs
+  veg <- veg[!is.na(veg)]
+  bld <- bld[!is.na(bld)]
+  
+  # Normality check
+  norm_veg <- shapiro.test(veg)
+  norm_bld <- shapiro.test(bld)
+  
+  # Perform test
+  if(norm_veg$p.value > 0.05 & norm_bld$p.value > 0.05) {
+    test <- t.test(veg, bld)
+  } else {
+    test <- wilcox.test(veg, bld)
+  }
+  
+# Generate and print results
+  p_value <- round(test$p.value, 3)
+  significance <- ifelse(p_value < 0.05, 
+                        "(Significant at the 0.05 level)", 
+                        "(Not significant at the 0.05 level)")
+  
+  str_glue("{param_name}: p-value = {p_value} {significance}\n",
+           "There is {ifelse(p_value < 0.05, 'a statistically significant', 
+           'no statistically significant')} difference ",
+           "in the mean {param_name} values between vegetation and building areas.")
+}
 
+cat("Significance difference Between buildings & vegetation:\n\n")
+walk(c("Avg_PM1", "Avg_PM2.5", "Avg_PM10", "Avg_RESP", "Avg_TOTAL"),
+     ~ cat(compare_groups(.x), "\n\n"))
 ```
